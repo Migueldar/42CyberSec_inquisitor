@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  attacker:
+    container_name: attacker
+    build: .
+  victim:
+    container_name: victim
+    image: debian
+    command: tail -f /dev/null
