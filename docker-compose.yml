@@ -3,7 +3,9 @@ services:
   attacker:
     container_name: attacker
     build: .
+    volumes: 
+      - $PWD/code:/code
   victim:
     container_name: victim
     image: debian
-    command: tail -f /dev/null
+    command: bash -c "apt-get update; apt-get -y install netcat net-tools tcpdump; tail -f /dev/null"
