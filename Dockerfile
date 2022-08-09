@@ -1,6 +1,6 @@
 FROM debian
 
-RUN apt-get update && apt-get -y upgrade
+RUN apt-get update
 RUN apt-get -y install golang
 RUN apt-get -y install manpages man-db
 #usefull for testing, del later
