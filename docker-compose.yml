@@ -5,7 +5,11 @@ services:
     build: .
     volumes: 
       - $PWD/code:/code
-  victim:
-    container_name: victim
+  victim1:
+    container_name: victim1
+    image: debian
+    command: bash -c "apt-get update; apt-get -y install netcat net-tools tcpdump iputils-ping; tail -f /dev/null"
+  victim2:
+    container_name: victim2
     image: debian
     command: bash -c "apt-get update; apt-get -y install netcat net-tools tcpdump iputils-ping; tail -f /dev/null"
