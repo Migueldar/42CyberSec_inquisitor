@@ -8,4 +8,4 @@ services:
   victim:
     container_name: victim
     image: debian
-    command: bash -c "apt-get update; apt-get -y install netcat net-tools tcpdump; tail -f /dev/null"
+    command: bash -c "apt-get update; apt-get -y install netcat net-tools tcpdump iputils-ping; tail -f /dev/null"
