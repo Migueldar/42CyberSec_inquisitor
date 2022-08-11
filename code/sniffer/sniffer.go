@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"errors"
-//	"github.com/google/gopacket"
+	"github.com/google/gopacket"
     "github.com/google/gopacket/pcap"
 )
 
@@ -50,7 +50,7 @@ func main() /*Sniffer*/ {
 	}
 	defer handle.Close()
 	/*
-	** filter traffic: compile and apply (netmask needed)
+	** Filter traffic: compile and apply (netmask needed)
 	** func (p *Handle) CompileBPFFilter(expr string) ([]BPFInstruction, error)
 	** 		expr:   BPF filter expresion (man 7 pcap-filter)
 	**		return: Compiled BPF instruction
@@ -60,9 +60,26 @@ func main() /*Sniffer*/ {
 		fmt.Println(err)
 		/* return err */
 	}
-	fmt.Println(BPFins)
 
-	/* set filter */
+	/* 
+	** Set filter: set compiled filter to handler
+	** func (p *Handle) SetBPFInstructionFilter(bpfInstructions []BPFInstruction) (err error)
+	**		bpfInstruction: BPF filter in asm byte fmt. (from Compile func. or tcpdump -dd 'str)
+	*/
+	err = handle.SetBPFInstructionFilter(BPFins)
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	/* pcap_loop */
+	/*
+	** Pcap_loop eq.
+	** func NewPacketSource(source PacketDataSource, decoder Decoder) *PacketSource
+	** 		source:  handle (PacketDataSource implements ReadPacketData)
+	**		decoder: handle.LinkType() -> returns pcap_datalink(), or link layer header typ
+	*/
+	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	for packet := range packetSource.Packets() {
+
+		parseCapturedPacket(packet)
+	}
 }
