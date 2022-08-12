@@ -1,4 +1,4 @@
-package arp
+package arpPoison
 
 import (
 	"log"
@@ -9,7 +9,7 @@ import (
 	"os"	
 )
 
-func ArpPoison (args [][]byte, inter *net.Interface) {
+func Poison (args [][]byte, inter *net.Interface) {
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)	
 	if err != nil {
 		log.Fatal(err)

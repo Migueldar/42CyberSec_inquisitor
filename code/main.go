@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"github.com/jackpal/gateway"
 	"github.com/mostlygeek/arp"
-	"github.com/migueldar/42CyberSec_inquisitor/arp"
+	"github.com/migueldar/42CyberSec_inquisitor/arpPoison"
 )
 
 //in charge of getting the arguments and turning them into byte arrays
@@ -80,5 +80,5 @@ func main() {
 		log.Fatal(err)
 	}
 	//here goes go routine for pcap
-	ArpPoison(args, inter)
+	arp.ArpPoison(args, inter)
 }
