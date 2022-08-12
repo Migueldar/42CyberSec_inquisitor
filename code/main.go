@@ -80,5 +80,5 @@ func main() {
 		log.Fatal(err)
 	}
 	//here goes go routine for pcap
-	arp.ArpPoison(args, inter)
+	arpPoison.Poison(args, inter)
 }
