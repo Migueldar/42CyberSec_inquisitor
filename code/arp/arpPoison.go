@@ -1,4 +1,4 @@
-package main
+package arp
 
 import (
 	"log"
@@ -10,7 +10,7 @@ import (
 )
 
 func ArpPoison (args [][]byte, inter *net.Interface) {
-	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)	
 	if err != nil {
 		log.Fatal(err)
 	}

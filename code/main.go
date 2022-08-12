@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"github.com/jackpal/gateway"
 	"github.com/mostlygeek/arp"
+	"github.com/migueldar/42CyberSec_inquisitor/arp"
 )
 
 //in charge of getting the arguments and turning them into byte arrays
