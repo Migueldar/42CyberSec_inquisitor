@@ -6,6 +6,7 @@ import (
 	"os"
 	"fmt"
 	"log"
+	"strings"
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -38,22 +39,28 @@ func selectInterface() (pcap.Interface, error) {
 
 func parseCaughtPacket(packet gopacket.Packet) {
 	transportLayer := packet.Layer(layers.LayerTypeTCP)
+	/* filter ipv6 packets */
 
 	/*testPrintPacket(packet)*/
 	if transportLayer != nil {
-		fmt.Println("Packet has a TCP layer")
-		tcp, _ := transportLayer.(*layers.TCP)	
-		if tcp.SrcPort != 21 || tcp.DstPort != 21 {
-			break
-		}
-		
+		tcp, _ := transportLayer.(*layers.TCP)
 		appLayer := packet.ApplicationLayer()
-		if appLayer != nil {
-			fmt.Printf("Payload: %s\n", appLayer.Payload())
-			/*
-			   ** USER, PASS for credentials
-			   ** RETR, STOR for file ops.
-			 */
+		
+		if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) {
+			payload := strings.Split(string(appLayer.Payload()), " ")
+			
+			switch payload[0] {
+			case "USER":
+				fmt.Printf("[USER] Caught credentials: username %s\n", payload[1])
+			case "PASS":
+				fmt.Printf("[PASS] Caught credentials: passwd %s\n", payload[1])
+			case "RETR":
+				fmt.Printf("Client <--- Server: %s\n", payload[1])
+			case "STOR":
+				fmt.Printf("Client ---> Server: %s\n", payload[1])
+			default:
+				break
+			}
 		}
 	}
 
@@ -120,8 +127,8 @@ func main() /*Sniffer*/ {
 	}
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	/* open log file */
+	fmt.Println("[ MONITORING NETWORK ]")
 	for packet := range packetSource.Packets() {
-		fmt.Printf("~~ MONITORING NETWORK ~~\n")
 		parseCaughtPacket(packet)
 	}
 }
