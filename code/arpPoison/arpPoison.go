@@ -7,6 +7,7 @@ import (
 	"time"
 	"os/signal"
 	"os"
+	"fmt"
 )
 
 func Poison (args [][]byte, inter *net.Interface) {
@@ -35,9 +36,7 @@ func Poison (args [][]byte, inter *net.Interface) {
 
 func sendPacket(fd int, packet []byte, address *syscall.SockaddrLinklayer) {
 	err := syscall.Sendto(fd, packet, 0, address)
-	if err != nil {
-		log.Fatal("Error sending arp packet: ", err)
-	}
+	fmt.Println(err)
 }
 
 func pkt_maker(toFoolIp, toFoolMac, sourceMac, targetIp, targetMac []byte) []byte {
