@@ -13,6 +13,7 @@ services:
       - inq-network
   server:
     build: proof_of_concept/server/
+    container_name: server
     environment:
       FTP_USR: ${FTP_USR}
       FTP_PWD: ${FTP_PWD}

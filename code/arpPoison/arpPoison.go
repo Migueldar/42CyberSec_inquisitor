@@ -36,7 +36,9 @@ func Poison (args [][]byte, inter *net.Interface) {
 
 func sendPacket(fd int, packet []byte, address *syscall.SockaddrLinklayer) {
 	err := syscall.Sendto(fd, packet, 0, address)
-	fmt.Println(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func pkt_maker(toFoolIp, toFoolMac, sourceMac, targetIp, targetMac []byte) []byte {
