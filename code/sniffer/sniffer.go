@@ -1,17 +1,14 @@
-package main
-/* package sniffer */
+package sniffer
 
 import (
 	"time"
-	"os"
 	"fmt"
 	"log"
 	"strings"
-	"bytes"
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-        "github.com/google/gopacket/pcap"
+    "github.com/google/gopacket/pcap"
 )
 
 var (	
@@ -45,7 +42,7 @@ func selectInterface() (pcap.Interface, error) {
 
 func parseCaughtPacket(packet gopacket.Packet) {
 	ipv6 := packet.Layer(layers.LayerTypeIPv6)
-	if ipv6 != null {
+	if ipv6 != nil {
 		return
 	}
 	transportLayer := packet.Layer(layers.LayerTypeTCP)
@@ -78,34 +75,8 @@ func parseCaughtPacket(packet gopacket.Packet) {
  ** not to provoke an unintended DoS on client
  */
 
-func tunnelPacket(packet gopacket.Packet, victimIP, victimMAC, serverMAC []byte) []byte {
-	var dstMAC []byte;
-	
-	ipLayer := packet.Layer(layers.LayerTypeIPv4)
-	ip, _ := ipLayer.(*layers.IPv4)
-
-	if bytes.Compare(ip.SrcIP, victimIP) == 0 {
-		dstMAC = serverMAC
-	} else {
-		dstMAC = victimMAC
-	}
-	oldPacket := packet.Data()
-	newPacket := append(dstMAC[:], oldPacket[6:]...)
-	
-	return newPacket
-}
-
-func usage() { /* delete when done */
-	fmt.Fprintf(os.Stderr, "usage: %s [victim-IP] [victim-MAC] [server-MAC]\n", os.Args[0])
-	os.Exit(1)
-}
-
-/* [victim-IP] [victim-MAC] [server-MAC] */
-func main() /*Sniffer*/ {
-	if len(os.Args[1:]) != 3 {
-		usage()
-	}
-	filter := append("host ", os.Args[1])
+func Sniffer(victimIP string) {
+	filter := "host " + victimIP
 	iface, err := selectInterface()
 	
 	if err != nil {
@@ -128,9 +99,5 @@ func main() /*Sniffer*/ {
 	fmt.Println("[ MONITORING NETWORK ]")
 	for packet := range packetSource.Packets() {
 		parseCaughtPacket(packet)
-		err := handle.WritePacketData(tunnelPacket(packet, []byte(os.Args[1]), []byte(os.Args[2]), []byte(os.Args[3])))
-		if err != nil {
-			fmt.Println("[DEBUG] could not tunnel packet")
-		}
 	}
 }
