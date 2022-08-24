@@ -1,0 +1,26 @@
+services:
+  ftp-client:
+    container_name: client
+    build: ./client/
+    networks:
+      - danger_zone
+  evil:
+    container_name: evil
+    build: ./evil/
+    networks:
+      - danger_zone
+  ftp-server:
+    container_name: server
+    build: ./server/
+    environment:
+      FTP_USR: ${FTP_USR}
+      FTP_PWD: ${FTP_PWD}
+    networks:
+      - danger_zone
+    expose:
+      - "21"
+      - "10000-10009"
+
+networks:
+  danger_zone:
+    driver: bridge

