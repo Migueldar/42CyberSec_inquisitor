@@ -6,16 +6,14 @@ import (
 	"os"
 	"fmt"
 	"bytes"
-	"github.com/jackpal/gateway"
-	"github.com/mostlygeek/arp"
 	"github.com/migueldar/42CyberSec_inquisitor/arpPoison"
 )
 
 //in charge of getting the arguments and turning them into byte arrays
 func parse() ([][]byte, error) {
 	args := os.Args
-	if (len(args) != 5) {
-		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-src><MAC-src><IPv4-target><MAC-target>")
+	if (len(args) != 7) {
+		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-source><MAC-source><IPv4-target><MAC-target><IPv4-server><MAC-server>")
 	}
 	var introduce []byte
 	var err error
@@ -38,23 +36,6 @@ func parse() ([][]byte, error) {
 	return bislice, nil
 }
 
-func addGateway(args [][]byte) {
-	gateIp, err := gateway.DiscoverGateway()
-	if err != nil {
-		log.Fatal(err)
-	}
-	gateMACStr := arp.Search(gateIp.String())
-	if gateMACStr == "" {
-		log.Fatal("Error, gateway's MAC not found in arp table")
-	}
-	gateMAC, err := net.ParseMAC(gateMACStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	args[4] = gateIp
-	args[5] = gateMAC
-}
-
 func getInterface(srcMAC []byte) (*net.Interface, error) {
 	allInterfaces, err := net.Interfaces()
 	if err != nil {
@@ -74,7 +55,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	addGateway(args)
 	inter, err := getInterface(args[1])
 	if err != nil {
 		log.Fatal(err)
