@@ -13,7 +13,7 @@ import (
 func parse() ([][]byte, error) {
 	args := os.Args
 	if (len(args) != 7) {
-		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-source><MAC-source><IPv4-target><MAC-target><IPv4-server><MAC-server>")
+		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-source><MAC-source><IPv4-client><MAC-client><IPv4-server><MAC-server>")
 	}
 	var introduce []byte
 	var err error
