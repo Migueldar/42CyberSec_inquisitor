@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"bytes"
 	"github.com/migueldar/42CyberSec_inquisitor/arpPoison"
+	"github.com/migueldar/42CyberSec_inquisitor/sniffer"
 )
 
 //in charge of getting the arguments and turning them into byte arrays
@@ -59,6 +60,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//here goes go routine for pcap
+	go sniffer.Sniffer(args[2])
 	arpPoison.Poison(args, inter)
 }
