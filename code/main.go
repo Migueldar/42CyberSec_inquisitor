@@ -14,7 +14,8 @@ import (
 func parse() ([][]byte, error) {
 	args := os.Args
 	if (len(args) != 7) {
-		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: <IPv4-source><MAC-source><IPv4-client><MAC-client><IPv4-server><MAC-server>")
+		return nil, fmt.Errorf("Incorrect number of arguments, the structure must be: " +
+			"<IPv4-source><MAC-source><IPv4-client><MAC-client><IPv4-server><MAC-server>")
 	}
 	var introduce []byte
 	var err error
@@ -60,6 +61,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go sniffer.Sniffer(args[2])
+	go sniffer.Sniffer(string (args[2]))
 	arpPoison.Poison(args, inter)
 }
