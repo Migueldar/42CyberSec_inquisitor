@@ -1,11 +1,9 @@
 FROM debian:bullseye-slim
 
-RUN apt-get update
-RUN apt-get -y install golang libpcap-dev
-#usefull for testing, del later
-RUN apt-get -y install manpages man-db
-RUN apt-get -y install netcat net-tools tcpdump python3 iputils-ping
+RUN apt-get update \
+    && apt-get -y install golang libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
 
-ENTRYPOINT tail -f /dev/null
+CMD tail -f /dev/null

@@ -7,12 +7,12 @@ services:
     volumes:
       - $PWD/code:/code
   client:
-    build: proof_of_concept/client/
+    build: ./client/
     container_name: client
     networks:
       - inq-network
   server:
-    build: proof_of_concept/server/
+    build: ./server/
     container_name: server
     environment:
       FTP_USR: ${FTP_USR}

