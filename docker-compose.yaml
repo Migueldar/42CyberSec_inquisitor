@@ -14,11 +14,11 @@ services:
   server:
     build: ./server/
     container_name: server
+    networks:
+      - inq-network
     environment:
       FTP_USR: ${FTP_USR}
       FTP_PWD: ${FTP_PWD}
-    networks:
-      - inq-network
     expose:
       - "21"
       - "10000-10009"
