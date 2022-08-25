@@ -9,7 +9,7 @@ import (
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-        "github.com/google/gopacket/pcap"
+    "github.com/google/gopacket/pcap"
 	"os"
 )
 
@@ -108,7 +108,7 @@ func parseCaughtPacket(packet gopacket.Packet) {
 				if len(payload) > 1 {
 					payloadArgs := strings.TrimSuffix(strings.Join(payload[1:], " "), "\n")
 					
-					fmt.Print(" with payload: ",payloadArgs)
+					fmt.Print(" with payload: ", payloadArgs)
 				}
 				fmt.Println()
 			}
